@@ -1,7 +1,5 @@
 # src/encryption.py
 
-# src/encryption.py
-
 from Pyfhel import Pyfhel
 
 class FHE:

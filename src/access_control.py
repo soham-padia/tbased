@@ -1,4 +1,4 @@
-# src/advanced_control.py
+# src/access_control.py
 
 from .encryption import FHE
 
