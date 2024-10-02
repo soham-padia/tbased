@@ -1,0 +1,8 @@
+numpy
+scikit-learn
+seaborn
+matplotlib
+networkx
+torch
+sympy
+Pyfhel
