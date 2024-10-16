@@ -1,23 +1,29 @@
 # src/encryption.py
-
+import numpy as np
 from Pyfhel import Pyfhel
 
 class FHE:
     def __init__(self):
         self.HE = Pyfhel()
-        # For BFV scheme with plaintext modulus bits t_bits=20
-        self.HE.contextGen(scheme='BFV', n=2**14, t_bits=20)
+        # For BFV scheme with plaintext modulus t=65537
+        self.HE.contextGen(scheme='BFV', n=2**14, t=65537)
         self.HE.keyGen()
-       # Generate public and private keys
+        # Generate public and private keys
 
     def encrypt(self, plaintext):
-        return self.HE.encryptInt(plaintext)  # Encrypt integer plaintext
+        # Convert plaintext integer to NumPy array
+        plaintext_array = np.array([plaintext], dtype=np.int64)
+        return self.HE.encryptInt(plaintext_array)
+
 
     def decrypt(self, ciphertext):
-        return self.HE.decryptInt(ciphertext)  # Decrypt to integer
+        decrypted_array = self.HE.decryptInt(ciphertext)
+        return int(decrypted_array[0])
+
 
     def add(self, ctxt1, ctxt2):
         return ctxt1 + ctxt2  # Homomorphic addition
 
     def multiply(self, ctxt1, ctxt2):
         return ctxt1 * ctxt2  # Homomorphic multiplication
+

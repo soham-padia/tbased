@@ -2,6 +2,7 @@
 
 import time
 from .block import Block
+from .parameters import NODE_COMPUTING_CAPACITY
 
 class Blockchain:
     def __init__(self, nodes, trust_manager):
@@ -14,6 +15,27 @@ class Blockchain:
         self.delegation_ratio = 0.5  # Initial delegation ratio
         self.consensus_success = 0  # Initialize consensus success metric
         self.create_genesis_block()
+
+    def get_transaction_throughput(self):
+        """
+        Calculate the transaction throughput.
+        For simplicity, return the number of transactions in the last block.
+        """
+        if len(self.chain) > 1:
+            last_block = self.chain[-1]
+            return len(last_block.transactions)
+        else:
+            return 0
+
+    def get_computation_cost(self):
+        """
+        Calculate the computational cost.
+        For simplicity, assume each node incurs a fixed computational cost per mining operation.
+        """
+        computation_cost_per_node = NODE_COMPUTING_CAPACITY  # From parameters.py
+        num_delegated_nodes = max(1, int(len(self.nodes) * self.delegation_ratio))
+        total_cost = computation_cost_per_node * num_delegated_nodes
+        return total_cost
 
     def create_genesis_block(self):
         genesis_block = Block(0, [], time.time(), "0")

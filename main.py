@@ -14,6 +14,19 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import networkx as nx
 import torch
+import sys
+import traceback
+
+ATTRIBUTE_VALUE_MAPPING = {
+    'role': {'admin': 1, 'user': 2, 'superuser': 3},
+    'location': {'HQ': 1, 'Branch1': 2, 'Branch2': 3}
+}
+
+# Reverse mapping for printing purposes (optional)
+REVERSE_ATTRIBUTE_VALUE_MAPPING = {
+    'role': {1: 'admin', 2: 'user', 3: 'superuser'},
+    'location': {1: 'HQ', 2: 'Branch1', 3: 'Branch2'}
+}
 
 def generate_transaction():
     """Generate a random transaction of average size."""
@@ -49,8 +62,8 @@ def plot_malicious_nodes(node_status):
 def get_node_attributes(node_id):
     """Retrieve attributes for a given node."""
     # For simplicity, assign random attributes
-    roles = ['admin', 'user', 'superuser']
-    locations = ['HQ', 'Branch1', 'Branch2']
+    roles = ['admin','admin', 'user', 'superuser']
+    locations = ['HQ','HQ', 'Branch1', 'Branch2']
     return {
         'role': random.choice(roles),
         'location': random.choice(locations)
@@ -68,7 +81,6 @@ def get_current_state(trust_manager, blockchain):
 def environment_step(action, blockchain, trust_manager):
     """Apply action to the environment and return the next state, reward, and done flag."""
     # Actions could be adjusting block size, block interval, delegation ratio
-    # For simplicity, we'll simulate the effect of actions
     # action 0: decrease delegation ratio
     # action 1: maintain delegation ratio
     # action 2: increase delegation ratio
@@ -94,7 +106,7 @@ def environment_step(action, blockchain, trust_manager):
 
     return next_state, reward, done
 
-def run_simulation():
+def run_simulation(config):
     try:
         print("Starting Simulation...")
 
@@ -113,13 +125,41 @@ def run_simulation():
         blockchain = Blockchain(nodes, trust_manager)
         print("Blockchain Initialized with Trust Management.")
 
-        # Setup Encrypted ABAC
-        abac = EncryptedABAC()
-        print("Encrypted ABAC Policies Set Up.")
-
         # Initialize FHE for encryption
         fhe = FHE()
         print("Fully Homomorphic Encryption Initialized.")
+
+        # Setup Encrypted ABAC
+        abac = EncryptedABAC()
+        abac.fhe = fhe  # Ensure ABAC uses the same FHE instance
+        print("Encrypted ABAC Policies Set Up.")
+
+        # Define a policy in the ABAC system
+        policy_id = "Policy1"
+        policy_attributes = {'role': 'admin', 'location': 'HQ'}
+
+        # Map policy attributes to integers
+        mapped_policy_attributes = {k: ATTRIBUTE_VALUE_MAPPING[k][v] for k, v in policy_attributes.items()}
+        abac.add_policy(policy_id, mapped_policy_attributes)
+        print(f"Policy {policy_id} added with attributes: {policy_attributes}")
+
+        # Generate attributes for each node and add them to ABAC
+        access_results = {}  # To keep track of access results
+        for node in nodes:
+            attributes = get_node_attributes(node)
+            # Map attributes to integers
+            mapped_attributes = {k: ATTRIBUTE_VALUE_MAPPING[k][v] for k, v in attributes.items()}
+            abac.add_user_attributes(node, mapped_attributes)
+            access_granted = abac.evaluate_policy(node, policy_id)
+            access_results[node] = access_granted
+            status = "GRANTED" if access_granted else "DENIED"
+            print(f"Access {status} for node {node} with attributes: {attributes}")
+
+        # After processing all nodes, print the final results
+        total_granted = sum(1 for granted in access_results.values() if granted)
+        total_denied = len(access_results) - total_granted
+        print(f"\nTotal nodes granted access: {total_granted}")
+        print(f"Total nodes denied access: {total_denied}")
 
         # Initialize DRL Agent
         state_size = 3  # Adjust based on get_current_state
@@ -146,12 +186,14 @@ def run_simulation():
 
                 action = agent.act(state)
                 next_state, reward, done = environment_step(action, blockchain, trust_manager)
-                error = reward - np.max(agent.model(torch.FloatTensor(state)).detach().numpy())
-                agent.memorize(state, action, reward, next_state, done, error)
+
+                # Memorize the experience
+                agent.memorize(state, action, reward, next_state, done)
+
                 state = next_state
                 total_reward += reward
 
-                if len(agent.memory) > batch_size:
+                if len(agent.memory.buffer) > batch_size:
                     agent.replay(batch_size)
 
             agent.update_target_model()
@@ -210,6 +252,11 @@ def run_simulation():
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    run_simulation()
+    if len(sys.argv) > 1:
+        config = sys.argv[1]
+    else:
+        config = 'ABAC-TDCB-D3P-NMA'  # Default configuration
+    run_simulation(config)
